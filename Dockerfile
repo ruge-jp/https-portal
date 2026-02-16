@@ -1,4 +1,4 @@
-ARG  DIST=nginx:1.29.1
+ARG  DIST=nginx:1.29.5
 FROM $DIST
 
 # Set by `docker buildx build`
