@@ -1,5 +1,5 @@
 # ============================================================================
-# Stage 0: nginx 1.31.1 を nginx 公式 apt repo から自前で組み立てる
+# Stage 0: nginx 1.31.2 を nginx 公式 apt repo から自前で組み立てる
 # (Docker Hub `library/nginx` の official image 反映を待たずに最新版を使うため。
 #  nginx-base/ の内容は nginx/docker-nginx の mainline/debian/ をそのまま取込)
 # ============================================================================
@@ -7,7 +7,7 @@ FROM debian:trixie-slim AS nginx
 
 LABEL maintainer="NGINX Docker Maintainers <docker-maint@nginx.com>"
 
-ENV NGINX_VERSION   1.31.1
+ENV NGINX_VERSION   1.31.2
 ENV NJS_VERSION     0.9.9
 ENV NJS_RELEASE     1~trixie
 ENV ACME_VERSION    0.4.1
