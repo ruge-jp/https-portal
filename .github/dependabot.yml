@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: "bundler"
+    directories:
+      - "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directories:
+      - "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker-compose"
+    directories:
+      - "/examples/custom_config"
+      - "/examples/minimal"
+      - "/examples/wordpress"
+      - "/spec/compositions/auto-discovery"
+      - "/spec/compositions/linked-containers"
+      - "/spec/compositions/local"
+      - "/spec/compositions/minimal-setup"
+      - "/spec/compositions/static-site"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "github-actions"
+    directories:
+      - "/"
+    schedule:
+      interval: "weekly"
