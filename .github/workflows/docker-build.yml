@@ -12,8 +12,29 @@ permissions:
   packages: write
 
 jobs:
-  build-x64:
+  # リリースのタグは v + Dockerfile の NGINX_VERSION。そのタグがまだ無い push をリリース対象にする
+  version:
     if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      new: ${{ steps.version.outputs.new }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        run: |
+          tag="v$(sed -n 's/^ENV NGINX_VERSION *//p' Dockerfile)"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+            new=false
+          else
+            new=true
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "new=$new" >> "$GITHUB_OUTPUT"
+
+  build-x64:
+    needs: version
+    if: github.event_name == 'push' && needs.version.outputs.new != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,9 +56,14 @@ jobs:
           platforms: linux/amd64
           tags: ghcr.io/${{ github.repository_owner }}/https-portal:latest
 
+  # GITHUB_TOKEN で作ったリリースは release イベントのワークフローを起動しないので、
+  # push でリリースするときもこのジョブを同じ実行の中で走らせる
   build-multiarch:
-    if: github.event_name == 'release'
+    needs: version
+    if: ${{ !cancelled() && (github.event_name == 'release' || needs.version.outputs.new == 'true') }}
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event_name == 'release' && github.ref_name || needs.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up QEMU
@@ -56,4 +82,29 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ghcr.io/${{ github.repository_owner }}/https-portal:latest,ghcr.io/${{ github.repository_owner }}/https-portal:${{ github.ref_name }}
+          tags: ghcr.io/${{ github.repository_owner }}/https-portal:latest,ghcr.io/${{ github.repository_owner }}/https-portal:${{ env.TAG }}
+
+  # イメージを push できてからリリースを作る。ノートは NGINX_VERSION の行を最後に変えたコミットの PR 本文
+  release:
+    needs: [version, build-multiarch]
+    if: github.event_name == 'push' && needs.version.outputs.new == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ needs.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create release
+        run: |
+          bump="$(git log -1 --format=%H -G '^ENV NGINX_VERSION' -- Dockerfile)"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/commits/$bump/pulls" --jq '.[0].body // ""')"
+          if [ -n "$body" ]; then
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$TAG" --notes "$body"
+          else
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$TAG" --generate-notes
+          fi
