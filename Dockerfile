@@ -104,8 +104,8 @@ RUN apt-get clean && \
 # Need this already now, but cannot copy remainder of fs_overlay yet
 COPY ./fs_overlay/usr/bin/archname /usr/bin/
 
-ENV S6_OVERLAY_VERSION=v3.2.0.0
-ENV DOCKER_GEN_VERSION=0.14.0
+ENV S6_OVERLAY_VERSION=v3.2.3.2
+ENV DOCKER_GEN_VERSION=0.17.2
 ENV ACME_TINY_VERSION=5.0.1
 
 RUN sh -c "wget -q https://github.com/just-containers/s6-overlay/releases/download/${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz -O /tmp/s6-overlay-noarch.tar.xz" && \
