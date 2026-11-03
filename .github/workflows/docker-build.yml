@@ -90,3 +90,31 @@ jobs:
           else
             gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$TAG" --generate-notes
           fi
+
+  # イメージを push できたら alvaldi のスタックを入れ替える。鍵は Actions secret DEPLOY_SSH_KEY で、
+  # ホスト側の authorized_keys で入れ替えスクリプト (latest を pull してスタックごと作り直す) しか実行できない。
+  # 接続先とホスト鍵は DEPLOY_TARGET (user@host) / DEPLOY_KNOWN_HOSTS
+  deploy:
+    needs: build-multiarch
+    if: ${{ !cancelled() && needs.build-multiarch.result == 'success' }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-alvaldi
+      cancel-in-progress: false
+    steps:
+      - name: コンテナの入れ替え
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_TARGET: ${{ secrets.DEPLOY_TARGET }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          dir=$(mktemp -d)
+          trap 'rm -rf "$dir"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$dir/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$dir/known_hosts"
+          chmod 600 "$dir/key"
+          # 実行されるコマンドはホスト側の authorized_keys の command= で決まる
+          ssh -i "$dir/key" -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o UserKnownHostsFile="$dir/known_hosts" -o StrictHostKeyChecking=yes \
+            "$DEPLOY_TARGET"
